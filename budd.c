@@ -148,6 +148,27 @@ static char *xstrdup(const char *s)
 	return r;
 }
 
+static int sane_isspace(char c)
+{
+	return c == ' ' || c == '\t' || c == '\r' || c == '\n';
+}
+
+static char *strip_ws(char *v)
+{
+	char *end;
+	while (sane_isspace(*v))
+		v++;
+
+	end = v + strlen(v);
+	if (end != v)
+		end--;
+
+	while (end != v && sane_isspace(*end))
+		*end-- = '\0';
+
+	return v;
+}
+
 static size_t buf_write_cb(char *ptr,
 		size_t size, size_t nmemb, void *user)
 {
@@ -293,27 +314,6 @@ out:
 	free(url);
 	free(result_buf.data);
 	return cres;
-}
-
-static int sane_isspace(char c)
-{
-	return c == ' ' || c == '\t' || c == '\r' || c == '\n';
-}
-
-static char *strip_ws(char *v)
-{
-	char *end;
-	while (sane_isspace(*v))
-		v++;
-
-	end = v + strlen(v);
-	if (end != v)
-		end--;
-
-	while (end != v && sane_isspace(*end))
-		*end-- = '\0';
-
-	return v;
 }
 
 static void handle_config_entry(const char *key, const char *value)
