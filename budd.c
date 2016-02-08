@@ -24,6 +24,7 @@
  */
 #include <errno.h>
 #include <stdarg.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -267,9 +268,49 @@ static int get_target_ip(void)
 	return ret;
 }
 
+static CURLcode check_result(struct buf *b, bool *fatal)
+{
+	char nul = '\0';
+	char *s, *end;
+	*fatal = false;
+
+	/* Ensure buffer is null-terminated. */
+	if (buf_write_cb(&nul, 1, 1, b) != 1)
+		return CURLE_OUT_OF_MEMORY;
+
+	s = strip_ws(b->data);
+	log_debug("response: %s", s);
+	end = strchrnul(s, ' ');
+	*end = '\0';
+
+	if (!strcmp(s, "good") || !strcmp(s, "nochg"))
+		return CURLE_OK;
+
+	*end = ' ';
+	if (!strcmp(s, "911")) {
+		log_warn("server will not accept request now: %s", s);
+		return CURLE_ABORTED_BY_CALLBACK;
+	}
+
+	/* Everything else is fatal. */
+	*fatal = true;
+	if (!strcmp(s, "nohost"))
+		log_error("hostname not found under specified account");
+	else if (!strcmp(s, "badauth"))
+		log_error("bad authentication credentials");
+	else if (!strcmp(s, "badagent"))
+		log_error("client has been disabled by server");
+	else if (!strcmp(s, "!donator"))
+		log_error("requested feature is not available to current user");
+	else if (!strcmp(s, "abuse"))
+		log_error("user is blocked due to abuse");
+	return CURLE_ABORTED_BY_CALLBACK;
+}
+
 static CURLcode send_update(void)
 {
 	CURLcode cres = CURLE_OUT_OF_MEMORY;
+	bool fatal_error;
 	char *url = NULL, *hostname = NULL, *ip = NULL;
 	struct buf result_buf = { 0 };
 	CURL *curl = curl_easy_init();
@@ -296,6 +337,7 @@ static CURLcode send_update(void)
 	curl_easy_setopt(curl, CURLOPT_USERNAME, state.username);
 	curl_easy_setopt(curl, CURLOPT_PASSWORD, state.password);
 
+	log_debug("sending request %s", url);
 	cres = curl_easy_perform(curl);
 
 	if (cres != CURLE_OK) {
@@ -304,8 +346,10 @@ static CURLcode send_update(void)
 		goto out;
 	}
 
-	log_info("updated IP for %s to %s",
-		state.target_host, state.public_ip);
+	cres = check_result(&result_buf, &fatal_error);
+	if (cres == CURLE_OK)
+		log_info("updated IP for %s to %s",
+			state.target_host, state.public_ip);
 
 out:
 	curl_free(hostname);
