@@ -471,10 +471,10 @@ int main(int argc, char *argv[])
 
 	if (get_target_ip() || force ||
 	    strcmp(state.public_ip, state.target_ip))
-		send_update();
+		cres = send_update();
 	else
 		log_info("skipping update: IP is already correct");
 
 	curl_global_cleanup();
-	return 0;
+	return cres == CURLE_OK ? 0 : 1;
 }
