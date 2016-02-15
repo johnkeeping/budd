@@ -427,6 +427,7 @@ static void usage(FILE *f)
 static const struct option long_opts[] = {
 	{ "--config",	required_argument,	0, 'c' },
 	{ "--force",	no_argument,		0, 'f' },
+	{ "--quiet",	no_argument,		0, 'q' },
 	{ "--verbose",	no_argument,		0, 'v' },
 	{ "--help",	no_argument,		0, 'h' },
 	{ NULL }
@@ -439,13 +440,16 @@ int main(int argc, char *argv[])
 	const char *config_file = NULL;
 	state.log_file = stderr;
 
-	while ((c = getopt_long(argc, argv, "c:fvh", long_opts, NULL)) >= 0) {
+	while ((c = getopt_long(argc, argv, "c:fqvh", long_opts, NULL)) >= 0) {
 		switch (c) {
 		case 'c':
 			config_file = optarg;
 			break;
 		case 'f':
 			force = 1;
+			break;
+		case 'q':
+			state.log_threshold = LOG_WARN;
 			break;
 		case 'v':
 			state.log_threshold = LOG_DEBUG;
